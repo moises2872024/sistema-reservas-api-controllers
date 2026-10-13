@@ -1,0 +1,11 @@
+[
+  {
+    "id": "294eef14-7789-471f-a7c3-f5c682e61000",
+    "name": "Corte de cabello",
+    "description": "Corte tradicional para adultos",
+    "duration": 30,
+    "price": 10000,
+    "category": "Peluquería",
+    "available": true
+  }
+]

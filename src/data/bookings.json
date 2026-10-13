@@ -1,0 +1,16 @@
+[
+  {
+    "id": "72e77344-db94-4432-a93a-037ee8cfa1ca",
+    "clientName": "Juan Pérez",
+    "clientEmail": "juan@example.com",
+    "date": "2026-11-15",
+    "time": "10:30",
+    "status": "pending",
+    "services": [
+      {
+        "service": "294eef14-7789-471f-a7c3-f5c682e61000",
+        "quantity": 2
+      }
+    ]
+  }
+]
