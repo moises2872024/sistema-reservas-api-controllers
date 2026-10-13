@@ -1,12 +1,58 @@
 
 const ServiceManager = require('../managers/ServiceManager');
 
+function isObjectBody(body) {
+  return body !== null &&
+    typeof body === 'object' &&
+    !Array.isArray(body);
+}
+
+function validateService(data) {
+  const errors = [];
+
+  if (typeof data.name !== 'string' || !data.name.trim()) {
+    errors.push('name debe ser un texto no vacío');
+  }
+
+  if (
+    typeof data.description !== 'string' ||
+    !data.description.trim()
+  ) {
+    errors.push('description debe ser un texto no vacío');
+  }
+
+  if (!Number.isInteger(data.duration) || data.duration <= 0) {
+    errors.push('duration debe ser un número entero mayor que 0');
+  }
+
+  if (
+    typeof data.price !== 'number' ||
+    !Number.isFinite(data.price) ||
+    data.price < 0
+  ) {
+    errors.push('price debe ser un número mayor o igual a 0');
+  }
+
+  if (typeof data.category !== 'string' || !data.category.trim()) {
+    errors.push('category debe ser un texto no vacío');
+  }
+
+  if (typeof data.available !== 'boolean') {
+    errors.push('available debe ser true o false');
+  }
+
+  return errors;
+}
+
 const getServices = (req, res) => {
   try {
-    const services = ServiceManager.getServices();
-    return res.status(200).json(services);
+    return res.status(200).json({
+      status: 'success',
+      data: ServiceManager.getServices()
+    });
   } catch (error) {
     return res.status(500).json({
+      status: 'error',
       message: 'Error al obtener los servicios'
     });
   }
@@ -14,18 +60,22 @@ const getServices = (req, res) => {
 
 const getServiceById = (req, res) => {
   try {
-    const { sid } = req.params;
-    const service = ServiceManager.getServiceById(sid);
+    const service = ServiceManager.getServiceById(req.params.sid);
 
     if (!service) {
       return res.status(404).json({
+        status: 'error',
         message: 'Servicio no encontrado'
       });
     }
 
-    return res.status(200).json(service);
+    return res.status(200).json({
+      status: 'success',
+      data: service
+    });
   } catch (error) {
     return res.status(500).json({
+      status: 'error',
       message: 'Error al obtener el servicio'
     });
   }
@@ -33,57 +83,47 @@ const getServiceById = (req, res) => {
 
 const createService = (req, res) => {
   try {
-    const {
-      name,
-      description,
-      duration,
-      price,
-      category,
-      available
-    } = req.body;
-
-    const errors = [];
-
-    if (typeof name !== 'string' || !name.trim()) {
-      errors.push('name es obligatorio y debe ser texto');
+    if (!isObjectBody(req.body)) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El cuerpo debe ser un objeto JSON'
+      });
     }
 
-    if (typeof description !== 'string' || !description.trim()) {
-      errors.push('description es obligatorio y debe ser texto');
+    if (Object.hasOwn(req.body, 'id')) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'El id se genera automáticamente y no debe enviarse'
+      });
     }
 
-    if (!Number.isInteger(duration) || duration <= 0) {
-      errors.push('duration debe ser un número entero mayor que 0');
-    }
-
-    if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) {
-      errors.push('price debe ser un número mayor o igual a 0');
-    }
-
-    if (typeof category !== 'string' || !category.trim()) {
-      errors.push('category es obligatorio y debe ser texto');
-    }
-
-    if (available !== undefined && typeof available !== 'boolean') {
-      errors.push('available debe ser un valor booleano');
-    }
+    const errors = validateService(req.body);
 
     if (errors.length > 0) {
-      return res.status(400).json({ errors });
+      return res.status(400).json({
+        status: 'error',
+        message: 'Datos del servicio inválidos',
+        errors
+      });
     }
 
     const service = ServiceManager.addService({
-      name: name.trim(),
-      description: description.trim(),
-      duration,
-      price,
-      category: category.trim(),
-      available
+      name: req.body.name.trim(),
+      description: req.body.description.trim(),
+      duration: req.body.duration,
+      price: req.body.price,
+      category: req.body.category.trim(),
+      available: req.body.available
     });
 
-    return res.status(201).json(service);
+    return res.status(201).json({
+      status: 'success',
+      message: 'Servicio creado correctamente',
+      data: service
+    });
   } catch (error) {
     return res.status(500).json({
+      status: 'error',
       message: 'Error al crear el servicio'
     });
   }
@@ -91,12 +131,17 @@ const createService = (req, res) => {
 
 const updateService = (req, res) => {
   try {
-    const { sid } = req.params;
-    const changes = req.body;
-
-    if (!changes || typeof changes !== 'object' || Array.isArray(changes)) {
+    if (!isObjectBody(req.body)) {
       return res.status(400).json({
-        message: 'El cuerpo de la petición debe ser un objeto'
+        status: 'error',
+        message: 'El cuerpo debe ser un objeto JSON'
+      });
+    }
+
+    if (Object.hasOwn(req.body, 'id')) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'No se permite modificar el id'
       });
     }
 
@@ -109,102 +154,56 @@ const updateService = (req, res) => {
       'available'
     ];
 
-    const keys = Object.keys(changes);
+    const unknownFields = Object.keys(req.body).filter(
+      field => !allowedFields.includes(field)
+    );
 
-    if (keys.length === 0) {
+    if (unknownFields.length > 0) {
       return res.status(400).json({
-        message: 'Debes enviar al menos un campo para actualizar'
+        status: 'error',
+        message: 'Hay campos no permitidos',
+        fields: unknownFields
       });
     }
 
-    const invalidFields = keys.filter(key => !allowedFields.includes(key));
-
-    if (invalidFields.length > 0) {
-      return res.status(400).json({
-        message: 'Hay campos que no se pueden actualizar',
-        fields: invalidFields
-      });
-    }
-
-    const errors = [];
-
-    if (
-      changes.name !== undefined &&
-      (typeof changes.name !== 'string' || !changes.name.trim())
-    ) {
-      errors.push('name debe ser un texto no vacío');
-    }
-
-    if (
-      changes.description !== undefined &&
-      (typeof changes.description !== 'string' ||
-        !changes.description.trim())
-    ) {
-      errors.push('description debe ser un texto no vacío');
-    }
-
-    if (
-      changes.duration !== undefined &&
-      (!Number.isInteger(changes.duration) || changes.duration <= 0)
-    ) {
-      errors.push('duration debe ser un número entero mayor que 0');
-    }
-
-    if (
-      changes.price !== undefined &&
-      (typeof changes.price !== 'number' ||
-        !Number.isFinite(changes.price) ||
-        changes.price < 0)
-    ) {
-      errors.push('price debe ser un número mayor o igual a 0');
-    }
-
-    if (
-      changes.category !== undefined &&
-      (typeof changes.category !== 'string' || !changes.category.trim())
-    ) {
-      errors.push('category debe ser un texto no vacío');
-    }
-
-    if (
-      changes.available !== undefined &&
-      typeof changes.available !== 'boolean'
-    ) {
-      errors.push('available debe ser un valor booleano');
-    }
+    // PUT exige todos los campos del servicio.
+    const errors = validateService(req.body);
 
     if (errors.length > 0) {
-      return res.status(400).json({ errors });
-    }
-
-    const normalizedChanges = { ...changes };
-
-    if (typeof normalizedChanges.name === 'string') {
-      normalizedChanges.name = normalizedChanges.name.trim();
-    }
-
-    if (typeof normalizedChanges.description === 'string') {
-      normalizedChanges.description = normalizedChanges.description.trim();
-    }
-
-    if (typeof normalizedChanges.category === 'string') {
-      normalizedChanges.category = normalizedChanges.category.trim();
+      return res.status(400).json({
+        status: 'error',
+        message: 'Todos los campos del servicio son obligatorios',
+        errors
+      });
     }
 
     const updatedService = ServiceManager.updateService(
-      sid,
-      normalizedChanges
+      req.params.sid,
+      {
+        name: req.body.name.trim(),
+        description: req.body.description.trim(),
+        duration: req.body.duration,
+        price: req.body.price,
+        category: req.body.category.trim(),
+        available: req.body.available
+      }
     );
 
     if (!updatedService) {
       return res.status(404).json({
+        status: 'error',
         message: 'Servicio no encontrado'
       });
     }
 
-    return res.status(200).json(updatedService);
+    return res.status(200).json({
+      status: 'success',
+      message: 'Servicio actualizado correctamente',
+      data: updatedService
+    });
   } catch (error) {
     return res.status(500).json({
+      status: 'error',
       message: 'Error al actualizar el servicio'
     });
   }
@@ -212,21 +211,23 @@ const updateService = (req, res) => {
 
 const deleteService = (req, res) => {
   try {
-    const { sid } = req.params;
-    const deletedService = ServiceManager.deleteService(sid);
+    const deletedService = ServiceManager.deleteService(req.params.sid);
 
     if (!deletedService) {
       return res.status(404).json({
+        status: 'error',
         message: 'Servicio no encontrado'
       });
     }
 
     return res.status(200).json({
+      status: 'success',
       message: 'Servicio eliminado correctamente',
-      service: deletedService
+      data: deletedService
     });
   } catch (error) {
     return res.status(500).json({
+      status: 'error',
       message: 'Error al eliminar el servicio'
     });
   }

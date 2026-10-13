@@ -1,11 +1,20 @@
 [
   {
     "id": "294eef14-7789-471f-a7c3-f5c682e61000",
-    "name": "Corte de cabello",
-    "description": "Corte tradicional para adultos",
-    "duration": 30,
-    "price": 10000,
+    "name": "Corte premium",
+    "description": "Corte de cabello premium",
+    "duration": 45,
+    "price": 15000,
     "category": "Peluquería",
+    "available": false
+  },
+  {
+    "id": "461f8390-74be-463d-87fb-c31f8c4cb13e",
+    "name": "masaje",
+    "description": "masaje oriental especial",
+    "duration": 60,
+    "price": 50000,
+    "category": "masaje",
     "available": true
   }
 ]
